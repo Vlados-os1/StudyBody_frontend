@@ -1,0 +1,24 @@
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+
+# CocoaPods
+Pods/
+
+# SwiftPM
+Packages/
+.swiftpm/
+.build/
+
+# Env files
+.env
+
+# Logs and temp files
+*.log
+*.tmp
+
