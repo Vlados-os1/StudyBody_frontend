@@ -35,3 +35,18 @@ struct User: Codable, Identifiable {
         case fullName = "full_name" // маппинг для backend
     }
 }
+
+struct UserProfileResponse: Codable {
+    let email: String
+    let fullName: String
+    let department: UserDepartment?
+    let interests: String?
+
+    enum CodingKeys: String, CodingKey {
+        case email
+        case department
+        case interests
+        case fullName = "full_name"  // Соответствие с ключом backend
+    }
+}
+

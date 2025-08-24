@@ -13,40 +13,24 @@ final class LoginViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var showingForgotPassword = false
-    
-    private let authService = AuthService.shared
-    
+
     var isFormValid: Bool {
-        !email.isEmpty &&
-        !password.isEmpty &&
-        email.contains("@") &&
-        password.count >= 6
+        !email.isEmpty && !password.isEmpty
     }
-    
+
     func login() async {
-        guard isFormValid else {
-            errorMessage = "Заполните все поля корректно"
-            return
-        }
-        
+        guard isFormValid else { return }
         isLoading = true
         errorMessage = nil
-        
+        defer { isLoading = false }
+
         do {
-            try await authService.login(email: email, password: password)
+            try await AuthService.shared.login(email: email, password: password)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = AuthService.shared.errorMessage
         }
-        
-        isLoading = false
     }
-    
-    func clearForm() {
-        email = ""
-        password = ""
-        errorMessage = nil
-    }
-    
+
     func clearError() {
         errorMessage = nil
     }

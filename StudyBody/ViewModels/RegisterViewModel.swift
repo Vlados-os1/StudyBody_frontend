@@ -12,47 +12,42 @@ final class RegisterViewModel: ObservableObject {
     @Published var email = ""
     @Published var password = ""
     @Published var confirmPassword = ""
-    @Published var department: UserDepartment? = nil
+    @Published var department: UserDepartment?
     @Published var interests = ""
-    
     @Published var isLoading = false
     @Published var errorMessage: String?
-    
-    private let authService = AuthService.shared
-    
+
+    var passwordValidationMessage: String? {
+        guard !password.isEmpty else { return nil }
+        if password.count < 8 {
+            return "Пароль должен содержать минимум 8 символов"
+        }
+        return nil
+    }
+
+    var confirmPasswordValidationMessage: String? {
+        guard !confirmPassword.isEmpty else { return nil }
+        if password != confirmPassword {
+            return "Пароли не совпадают"
+        }
+        return nil
+    }
+
     var isFormValid: Bool {
         !name.isEmpty &&
         !email.isEmpty &&
-        !password.isEmpty &&
-        !confirmPassword.isEmpty &&
-        email.contains("@") &&
         password.count >= 8 &&
         password == confirmPassword
     }
-    
-    var passwordValidationMessage: String? {
-        if password.isEmpty { return nil }
-        if password.count < 8 { return "Пароль должен содержать минимум 8 символов" }
-        return nil
-    }
-    
-    var confirmPasswordValidationMessage: String? {
-        if confirmPassword.isEmpty { return nil }
-        if password != confirmPassword { return "Пароли не совпадают" }
-        return nil
-    }
-    
+
     func register() async {
-        guard isFormValid else {
-            errorMessage = "Заполните все поля корректно"
-            return
-        }
-        
+        guard isFormValid else { return }
         isLoading = true
         errorMessage = nil
-        
+        defer { isLoading = false }
+
         do {
-            try await authService.register(
+            try await AuthService.shared.register(
                 name: name,
                 email: email,
                 password: password,
@@ -61,22 +56,10 @@ final class RegisterViewModel: ObservableObject {
                 interests: interests
             )
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = AuthService.shared.errorMessage
         }
-        
-        isLoading = false
     }
-    
-    func clearForm() {
-        name = ""
-        email = ""
-        password = ""
-        confirmPassword = ""
-        department = nil
-        interests = ""
-        errorMessage = nil
-    }
-    
+
     func clearError() {
         errorMessage = nil
     }

@@ -37,7 +37,7 @@ final class TokenManager: ObservableObject {
     
     func refreshAccessToken() async throws -> String {
         guard let url = URL(string: "\(NetworkService.baseURL)/api/refresh") else {
-            throw AuthError.invalidURL()
+            throw AuthError.invalidURL
         }
         
         var request = URLRequest(url: url)
@@ -63,11 +63,11 @@ final class TokenManager: ObservableObject {
                 saveAccessToken(tokenResponse.token)
                 return tokenResponse.token
             } else {
-                throw AuthError.tokenExpired()
+                throw AuthError.tokenExpired
             }
         } catch {
             await clearTokens()
-            throw AuthError.tokenExpired()
+            throw AuthError.tokenExpired
         }
     }
     

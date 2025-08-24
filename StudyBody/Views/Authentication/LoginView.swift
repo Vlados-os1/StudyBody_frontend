@@ -8,14 +8,17 @@ import SwiftUI
 struct LoginView: View {
     @StateObject private var viewModel = LoginViewModel()
     @FocusState private var focusedField: Field?
-    
+
     let onSwitchToRegister: () -> Void
     let onLoginSuccess: () -> Void
     
+    let showingVerificationNotice: Bool
+    let onHideVerificationNotice: () -> Void
+
     enum Field {
         case email, password
     }
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -35,9 +38,7 @@ struct LoginView: View {
                 ForgotPasswordView()
             }
             .alert("Ошибка", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("OK") {
-                    viewModel.clearError()
-                }
+                Button("OK") { viewModel.clearError() }
             } message: {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
@@ -45,24 +46,24 @@ struct LoginView: View {
             }
         }
     }
-    
+
     private var headerSection: some View {
         VStack(spacing: 16) {
             Image(systemName: "graduationcap.fill")
                 .font(.system(size: 64))
                 .foregroundColor(.blue)
-            
+
             Text("StudyBody")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-            
+
             Text("Войдите в свой аккаунт")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .padding(.bottom, 16)
         }
     }
-    
+
     private var loginFormSection: some View {
         VStack(spacing: 16) {
             CustomTextField(
@@ -73,7 +74,7 @@ struct LoginView: View {
             )
             .focused($focusedField, equals: .email)
             .onSubmit { focusedField = .password }
-            
+
             CustomTextField(
                 title: "Пароль",
                 text: $viewModel.password,
@@ -87,7 +88,7 @@ struct LoginView: View {
             }
         }
     }
-    
+
     private var loginButtonSection: some View {
         LoadingButton(
             title: "Войти",
@@ -98,7 +99,7 @@ struct LoginView: View {
         }
         .padding(.top, 8)
     }
-    
+
     private var forgotPasswordSection: some View {
         Button("Забыли пароль?") {
             viewModel.showingForgotPassword = true
@@ -106,13 +107,13 @@ struct LoginView: View {
         .font(.subheadline)
         .foregroundColor(.blue)
     }
-    
+
     private var switchToRegisterSection: some View {
         VStack(spacing: 8) {
             Text("Нет аккаунта?")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-            
+
             Button("Зарегистрироваться") {
                 onSwitchToRegister()
             }

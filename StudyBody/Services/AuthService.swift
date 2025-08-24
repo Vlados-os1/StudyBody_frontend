@@ -9,14 +9,14 @@ import SwiftUI
 @MainActor
 final class AuthService: ObservableObject {
     static let shared = AuthService()
-    
+
     private let networkService = NetworkService.shared
     private let tokenManager = TokenManager.shared
-    
+
     @Published var currentUser: User?
     @Published var isLoading = false
     @Published var errorMessage: String?
-    
+
     private init() {
         Task {
             for await isAuthenticated in tokenManager.$isAuthenticated.values {
@@ -28,8 +28,6 @@ final class AuthService: ObservableObject {
             }
         }
     }
-    
-    // MARK: - Authentication Methods
     
     func login(email: String, password: String) async throws {
         isLoading = true
@@ -47,8 +45,8 @@ final class AuthService: ObservableObject {
             
             tokenManager.saveAccessToken(response.token)
             await fetchCurrentUser()
-        } catch let error as AuthError {
-            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = ErrorHandler.getUserFriendlyMessage(from: error)
             throw error
         }
     }
@@ -80,9 +78,8 @@ final class AuthService: ObservableObject {
                 body: request,
                 responseType: User.self
             )
-            // После регистрации пользователь должен подтвердить email
-        } catch let error as AuthError {
-            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = ErrorHandler.getUserFriendlyMessage(from: error)
             throw error
         }
     }
@@ -100,56 +97,49 @@ final class AuthService: ObservableObject {
                 body: request,
                 responseType: SuccessResponse.self
             )
-        } catch let error as AuthError {
-            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = ErrorHandler.getUserFriendlyMessage(from: error)
             throw error
         }
     }
     
-    func logout() async {
+    func resendVerificationEmail(email: String) async throws {
         isLoading = true
+        errorMessage = nil
         defer { isLoading = false }
+        
+        let request = ResendVerificationRequest(email: email)
         
         do {
             let _: SuccessResponse = try await networkService.post(
-                endpoint: "/api/logout",
-                body: EmptyRequest(),
-                requiresAuth: true,
+                endpoint: "/api/resend-verification",
+                body: request,
                 responseType: SuccessResponse.self
             )
         } catch {
-            print("Logout error: \(error)")
+            errorMessage = ErrorHandler.getUserFriendlyMessage(from: error)
+            throw error
         }
-        
-        await tokenManager.clearTokens()
-        currentUser = nil
     }
-    
-    // MARK: - User Profile Methods
     
     func fetchCurrentUser() async {
         do {
-            let userData: UserProfileResponse = try await networkService.get(
+            let userData: AuthUserProfileResponse = try await networkService.get(
                 endpoint: "/api/main",
                 requiresAuth: true,
-                responseType: UserProfileResponse.self
+                responseType: AuthUserProfileResponse.self
             )
             
             currentUser = User(
-                id: UUID(), // Backend не возвращает ID в /api/main
+                id: UUID(uuidString: userData.id) ?? UUID(),
                 email: userData.email,
                 fullName: userData.fullName,
                 department: userData.department,
                 interests: userData.interests
             )
         } catch {
-            if let authError = error as? AuthError {
-                switch authError.type {
-                case .tokenExpired:
-                    await tokenManager.clearTokens()
-                default:
-                    break
-                }
+            if let authError = error as? AuthError, authError == .tokenExpired {
+                await tokenManager.clearTokens()
             }
         }
     }
@@ -171,34 +161,37 @@ final class AuthService: ObservableObject {
                 user.interests = facts.interests
                 currentUser = user
             }
-        } catch let error as AuthError {
-            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = ErrorHandler.getUserFriendlyMessage(from: error)
             throw error
         }
     }
     
-    // MARK: - Helper Methods
+    func logout() async {
+        await tokenManager.clearTokens()
+        currentUser = nil
+    }
     
     func clearError() {
         errorMessage = nil
     }
-    
-    var isAuthenticated: Bool {
-        tokenManager.isAuthenticated
-    }
 }
 
-// Схема ответа от /api/main
-struct UserProfileResponse: Codable {
+// MARK: - Модели ответов и запросов
+
+struct AuthUserProfileResponse: Codable {
+    let id: String
     let email: String
     let fullName: String
     let department: UserDepartment?
     let interests: String?
-    
+
     enum CodingKeys: String, CodingKey {
-        case email, department, interests
+        case id, email, department, interests
         case fullName = "full_name"
     }
 }
 
-struct EmptyRequest: Codable {}
+struct ResendVerificationRequest: Codable {
+    let email: String
+}

@@ -1,54 +1,46 @@
-//
-// CreateVacancyView.swift
-// StudyBody
-//
-
 import SwiftUI
 
 struct CreateVacancyView: View {
     @Environment(\.dismiss) private var dismiss
-    
     @State private var title = ""
-    @State private var summary = ""
+    @State private var description = ""
     @State private var tags = ""
-    
-    var onSave: (Vacancy) -> Void
-    
+
+    var onSave: (VacancyCreateRequest) -> Void
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Заголовок") {
                     TextField("Название вакансии", text: $title)
                 }
-                
                 Section("Описание") {
-                    TextEditor(text: $summary)
+                    TextEditor(text: $description)
                         .frame(height: 120)
                 }
-                
-                Section("Теги через запятую") {
-                    TextField("пример: SwiftUI, CoreData", text: $tags)
+                Section("Теги") {
+                    TextField("Например: SwiftUI, CoreData, iOS", text: $tags)
+                        .autocapitalization(.none)
                 }
             }
             .navigationTitle("Новая вакансия")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", role: .cancel) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let vacancy = Vacancy(
-                            id: .init(),
-                            title: title,
-                            summary: summary,
-                            authorName: "Me", // TODO: заменить на текущего пользователя
-                            createdAt: Date(),
-                            tags: tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                        )
-                        onSave(vacancy)
+                    Button("Отмена", role: .cancel) {
                         dismiss()
                     }
-                    .disabled(title.isEmpty || summary.isEmpty)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Создать") {
+                        let request = VacancyCreateRequest(
+                            title: title,
+                            description: description.isEmpty ? nil : description,
+                            tags: tags.isEmpty ? nil : tags
+                        )
+                        onSave(request)
+                        dismiss()
+                    }
+                    .disabled(title.isEmpty || description.isEmpty)
                 }
             }
         }

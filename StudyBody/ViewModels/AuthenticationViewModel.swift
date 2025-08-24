@@ -23,7 +23,6 @@ final class AuthenticationViewModel: ObservableObject {
     init() {
         checkAuthenticationStatus()
         
-        // Подписываемся на изменения токена
         Task {
             for await isAuthenticated in tokenManager.$isAuthenticated.values {
                 updateAuthenticationState(isAuthenticated: isAuthenticated)

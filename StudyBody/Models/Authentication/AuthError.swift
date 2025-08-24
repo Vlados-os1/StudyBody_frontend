@@ -1,27 +1,18 @@
-//
-// AuthError.swift
-// StudyBody
-//
-
 import Foundation
 
-struct AuthError: Error, LocalizedError {
-    enum ErrorType {
-        case invalidURL
-        case invalidCredentials
-        case tokenExpired
-        case networkError(Error)
-        case decodingError
-        case serverError(Int)
-        case userNotFound
-        case emailAlreadyExists
-        case unknown(Error)
-    }
+enum AuthError: Error, LocalizedError, Equatable {
+    case invalidURL
+    case invalidCredentials
+    case tokenExpired
+    case networkError(Error)
+    case decodingError
+    case serverError(Int)
+    case userNotFound
+    case emailAlreadyExists
+    case unknown(Error)
 
-    let type: ErrorType
-    
     var errorDescription: String? {
-        switch type {
+        switch self {
         case .invalidURL:
             return "Неправильный URL"
         case .invalidCredentials:
@@ -37,45 +28,28 @@ struct AuthError: Error, LocalizedError {
         case .userNotFound:
             return "Пользователь не найден"
         case .emailAlreadyExists:
-            return "Email уже зарегистрирован"
+            return "Пользователь с таким email уже зарегистрирован"
         case .unknown(let error):
             return "Неизвестная ошибка: \(error.localizedDescription)"
         }
     }
-    
-    static func invalidURL() -> AuthError {
-        AuthError(type: .invalidURL)
-    }
-    
-    static func invalidCredentials() -> AuthError {
-        AuthError(type: .invalidCredentials)
-    }
-    
-    static func tokenExpired() -> AuthError {
-        AuthError(type: .tokenExpired)
-    }
-    
-    static func networkError(_ error: Error) -> AuthError {
-        AuthError(type: .networkError(error))
-    }
-    
-    static func decodingError() -> AuthError {
-        AuthError(type: .decodingError)
-    }
-    
-    static func serverError(_ code: Int) -> AuthError {
-        AuthError(type: .serverError(code))
-    }
-    
-    static func userNotFound() -> AuthError {
-        AuthError(type: .userNotFound)
-    }
-    
-    static func emailAlreadyExists() -> AuthError {
-        AuthError(type: .emailAlreadyExists)
-    }
-    
-    static func unknown(_ error: Error) -> AuthError {
-        AuthError(type: .unknown(error))
+
+    static func == (lhs: AuthError, rhs: AuthError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidURL, .invalidURL),
+             (.invalidCredentials, .invalidCredentials),
+             (.tokenExpired, .tokenExpired),
+             (.decodingError, .decodingError),
+             (.userNotFound, .userNotFound),
+             (.emailAlreadyExists, .emailAlreadyExists):
+            return true
+        case (.serverError(let lhsCode), .serverError(let rhsCode)):
+            return lhsCode == rhsCode
+        case (.networkError, .networkError),
+             (.unknown, .unknown):
+            return false
+        default:
+            return false
+        }
     }
 }
