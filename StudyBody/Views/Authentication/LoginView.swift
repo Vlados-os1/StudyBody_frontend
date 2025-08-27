@@ -1,126 +1,90 @@
 //
-// LoginView.swift
-// StudyBody
+//  LoginView.swift
+//  StudyBodyApp
+//
+//  Created by User on 26/08/2025.
 //
 
 import SwiftUI
 
 struct LoginView: View {
-    @StateObject private var viewModel = LoginViewModel()
-    @FocusState private var focusedField: Field?
-
-    let onSwitchToRegister: () -> Void
-    let onLoginSuccess: () -> Void
+    @EnvironmentObject var authManager: AuthManager
+    @State private var email = ""
+    @State private var password = ""
+    @State private var showingRegistration = false
     
-    let showingVerificationNotice: Bool
-    let onHideVerificationNotice: () -> Void
-
-    enum Field {
-        case email, password
-    }
-
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    headerSection
-                    loginFormSection
-                    loginButtonSection
-                    forgotPasswordSection
-                    switchToRegisterSection
+            VStack(spacing: Constants.UI.largeSpacing) {
+                Spacer()
+                
+                // Logo/Title
+                VStack(spacing: Constants.UI.mediumSpacing) {
+                    Text("StudyBody")
+                        .font(Constants.Fonts.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(Constants.Colors.primaryBlue)
+                    
+                    Text("Добро пожаловать!")
+                        .font(Constants.Fonts.title2)
+                        .foregroundColor(Constants.Colors.textSecondary)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 32)
+                
+                Spacer()
+                
+                // Form
+                VStack(spacing: Constants.UI.mediumSpacing) {
+                    CustomTextField(
+                        placeholder: "Email",
+                        text: $email,
+                        icon: Constants.Images.envelope,
+                        keyboardType: .emailAddress,
+                        contentType: .emailAddress
+                    )
+                    
+                    CustomTextField(
+                        placeholder: "Пароль",
+                        text: $password,
+                        icon: Constants.Images.lock,
+                        isSecure: true,
+                        contentType: .password
+                    )
+                    
+                    Button("Войти") {
+                        Task {
+                            await authManager.login(email: email, password: password)
+                        }
+                    }
+                    .primaryButtonStyle()
+                    .disabled(authManager.isLoading)
+                    
+                    if let errorMessage = authManager.errorMessage {
+                        Text(errorMessage)
+                            .font(Constants.Fonts.caption)
+                            .foregroundColor(Constants.Colors.errorRed)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                
+                Spacer()
+                
+                // Registration link
+                Button("Нет аккаунта? Зарегистрироваться") {
+                    showingRegistration = true
+                }
+                .font(Constants.Fonts.callout)
+                .foregroundColor(Constants.Colors.primaryBlue)
             }
+            .padding(Constants.UI.largePadding)
             .navigationBarHidden(true)
-            .background(Color(.systemBackground))
-            .sheet(isPresented: $viewModel.showingForgotPassword) {
-                ForgotPasswordView()
-            }
-            .alert("Ошибка", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("OK") { viewModel.clearError() }
-            } message: {
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                }
-            }
+        }
+        .sheet(isPresented: $showingRegistration) {
+            RegisterView()
         }
     }
+}
 
-    private var headerSection: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "graduationcap.fill")
-                .font(.system(size: 64))
-                .foregroundColor(.blue)
-
-            Text("StudyBody")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("Войдите в свой аккаунт")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 16)
-        }
-    }
-
-    private var loginFormSection: some View {
-        VStack(spacing: 16) {
-            CustomTextField(
-                title: "Email",
-                text: $viewModel.email,
-                keyboardType: .emailAddress,
-                autocapitalization: .never
-            )
-            .focused($focusedField, equals: .email)
-            .onSubmit { focusedField = .password }
-
-            CustomTextField(
-                title: "Пароль",
-                text: $viewModel.password,
-                isSecure: true
-            )
-            .focused($focusedField, equals: .password)
-            .onSubmit {
-                if viewModel.isFormValid {
-                    Task { await viewModel.login() }
-                }
-            }
-        }
-    }
-
-    private var loginButtonSection: some View {
-        LoadingButton(
-            title: "Войти",
-            isLoading: viewModel.isLoading,
-            isEnabled: viewModel.isFormValid
-        ) {
-            Task { await viewModel.login() }
-        }
-        .padding(.top, 8)
-    }
-
-    private var forgotPasswordSection: some View {
-        Button("Забыли пароль?") {
-            viewModel.showingForgotPassword = true
-        }
-        .font(.subheadline)
-        .foregroundColor(.blue)
-    }
-
-    private var switchToRegisterSection: some View {
-        VStack(spacing: 8) {
-            Text("Нет аккаунта?")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            Button("Зарегистрироваться") {
-                onSwitchToRegister()
-            }
-            .font(.subheadline)
-            .fontWeight(.medium)
-            .foregroundColor(.blue)
-            .padding(.top, 16)
-        }
-    }
+#Preview {
+    LoginView()
+        .environmentObject(AuthManager())
 }

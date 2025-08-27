@@ -1,5 +1,5 @@
 //
-//  CreateVacancyView.swift
+//  EditVacancyView.swift
 //  StudyBodyApp
 //
 //  Created by User on 25/08/2025.
@@ -7,9 +7,11 @@
 
 import SwiftUI
 
-struct CreateVacancyView: View {
+struct EditVacancyView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var vacancyViewModel: VacancyViewModel
+    
+    let vacancy: Vacancy
     
     @State private var title: String = ""
     @State private var description: String = ""
@@ -22,11 +24,11 @@ struct CreateVacancyView: View {
                 VStack(spacing: Constants.UI.largeSpacing) {
                     // Header
                     VStack(spacing: Constants.UI.mediumSpacing) {
-                        Image(systemName: Constants.Images.briefcaseFill)
+                        Image(systemName: Constants.Images.pencil)
                             .font(.system(size: 60))
                             .foregroundColor(Constants.Colors.primaryBlue)
                         
-                        Text(Constants.Text.Vacancies.createVacancy)
+                        Text(Constants.Text.Vacancies.editVacancy)
                             .font(Constants.Fonts.title1)
                             .foregroundColor(Constants.Colors.textPrimary)
                     }
@@ -90,7 +92,7 @@ struct CreateVacancyView: View {
                     Spacer()
                 }
             }
-            .navigationTitle("Создание вакансии")
+            .navigationTitle("Редактирование")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
@@ -104,30 +106,43 @@ struct CreateVacancyView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(Constants.Text.Common.save) {
                         Task {
-                            await createVacancy()
+                            await updateVacancy()
                         }
                     }
                     .foregroundColor(Constants.Colors.primaryBlue)
-                    .disabled(vacancyViewModel.isLoading || title.trimmed.isEmpty)
+                    .disabled(vacancyViewModel.isLoading || title.trimmed.isEmpty || !hasChanges)
                 }
             }
         }
-        .alert("Вакансия создана", isPresented: $showingSuccessAlert) {
+        .alert("Вакансия обновлена", isPresented: $showingSuccessAlert) {
             Button("OK") {
                 dismiss()
             }
         } message: {
-            Text("Ваша вакансия успешно опубликована")
+            Text("Изменения успешно сохранены")
         }
         .onTapGesture {
             hideKeyboard()
         }
         .onAppear {
+            setupInitialValues()
             vacancyViewModel.clearAllMessages()
         }
     }
     
-    private func createVacancy() async {
+    private var hasChanges: Bool {
+        title.trimmed != vacancy.title ||
+        description.trimmed != (vacancy.description ?? "") ||
+        tags.trimmed != (vacancy.tags ?? "")
+    }
+    
+    private func setupInitialValues() {
+        title = vacancy.title
+        description = vacancy.description ?? ""
+        tags = vacancy.tags ?? ""
+    }
+    
+    private func updateVacancy() async {
         let trimmedTitle = title.trimmed
         let trimmedDescription = description.trimmed
         let trimmedTags = tags.trimmed
@@ -135,10 +150,13 @@ struct CreateVacancyView: View {
         let tagsArray = trimmedTags.isEmpty ? [] :
             trimmedTags.components(separatedBy: ",").map { $0.trimmed }
         
-        let success = await vacancyViewModel.createVacancy(
-            title: trimmedTitle,
-            description: trimmedDescription.isEmpty ? nil : trimmedDescription,
-            tags: tagsArray.isEmpty ? [] : tagsArray
+        let success = await vacancyViewModel.updateVacancy(
+            id: vacancy.id,
+            title: trimmedTitle != vacancy.title ? trimmedTitle : nil,
+            description: trimmedDescription != (vacancy.description ?? "") ?
+                (trimmedDescription.isEmpty ? nil : trimmedDescription) : nil,
+            tags: trimmedTags != (vacancy.tags ?? "") ?
+                (tagsArray.isEmpty ? [] : tagsArray) : nil
         )
         
         if success {
@@ -147,9 +165,4 @@ struct CreateVacancyView: View {
             }
         }
     }
-}
-
-#Preview {
-    CreateVacancyView()
-        .environmentObject(VacancyViewModel())
 }

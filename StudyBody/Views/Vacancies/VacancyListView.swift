@@ -1,133 +1,165 @@
+//
+//  VacancyListView.swift
+//  StudyBodyApp
+//
+//  Created by User on 25/08/2025.
+//
+
 import SwiftUI
 
 struct VacancyListView: View {
-    @EnvironmentObject var vm: VacancyViewModel
-    @State private var showingCreateVacancy = false
-
+    @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var vacancyViewModel: VacancyViewModel
+    
+    @State private var searchText = ""
+    @State private var selectedDepartment: UserDepartment?
+    @State private var showingFilter = false
+    @State private var selectedVacancy: Vacancy?
+    
+    var filteredVacancies: [Vacancy] {
+        var vacancies = vacancyViewModel.allVacancies
+        
+        // Apply search filter
+        if !searchText.isEmpty {
+            vacancies = vacancyViewModel.searchVacancies(query: searchText)
+        }
+        
+        // Apply department filter
+        if let department = selectedDepartment {
+            vacancies = vacancies.filter { $0.user.department == department }
+        }
+        
+        return vacancies.sorted { $0.createdAt ?? Date() > $1.createdAt ?? Date() }
+    }
+    
     var body: some View {
-        NavigationStack {
-            Group {
-                if vm.isLoading && vm.vacancies.isEmpty {
-                    ProgressView("Загрузка вакансий...")
+        NavigationView {
+            VStack(spacing: 0) {
+                // Search Bar
+                SearchBar(text: $searchText)
+                    .padding(.horizontal, Constants.UI.padding)
+                
+                // Content
+                if vacancyViewModel.isLoading && vacancyViewModel.allVacancies.isEmpty {
+                    LoadingView(text: "Загрузка вакансий...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if vm.vacancies.isEmpty {
-                    emptyStateView
+                } else if filteredVacancies.isEmpty {
+                    EmptyVacanciesView(
+                        isSearching: !searchText.isEmpty || selectedDepartment != nil
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    vacancyListView
+                    List(filteredVacancies) { vacancy in
+                        VacancyCard(
+                            vacancy: vacancy,
+                            canEdit: vacancyViewModel.canEditVacancy(
+                                vacancy,
+                                currentUserId: authManager.currentUser?.id
+                            )
+                        )
+                        .onTapGesture {
+                            selectedVacancy = vacancy
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .padding(.horizontal, Constants.UI.padding)
+                        .padding(.vertical, Constants.UI.smallPadding)
+                    }
+                    .listStyle(PlainListStyle())
+                    .refreshable {
+                        await vacancyViewModel.fetchAllVacancies()
+                    }
+                }
+                
+                // Error Message
+                if let errorMessage = vacancyViewModel.errorMessage {
+                    ErrorBannerView(
+                        message: errorMessage,
+                        isVisible: .constant(true)
+                    )
+                    .padding(.horizontal, Constants.UI.padding)
                 }
             }
-            .navigationTitle("Вакансии")
+            .navigationTitle(Constants.Text.Vacancies.allVacancies)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Создать") {
-                        showingCreateVacancy = true
+                    Button {
+                        showingFilter = true
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .foregroundColor(Constants.Colors.primaryBlue)
                     }
                 }
             }
-            .sheet(isPresented: $showingCreateVacancy) {
-                CreateVacancyView { request in
-                    Task {
-                        _ = await vm.createVacancy(request)
-                    }
-                }
+            .sheet(isPresented: $showingFilter) {
+                FilterView(selectedDepartment: $selectedDepartment)
             }
-            .refreshable {
-                await vm.fetchVacancies()
-            }
-            .alert("Ошибка", isPresented: .constant(vm.errorMessage != nil)) {
-                Button("OK") { vm.clearError() }
-            } message: {
-                if let errorMessage = vm.errorMessage {
-                    Text(errorMessage)
-                }
+            .sheet(item: $selectedVacancy) { vacancy in
+                VacancyDetailView(vacancy: vacancy)
             }
         }
-    }
-
-    private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 64))
-                .foregroundColor(.gray)
-
-            Text("Нет вакансий")
-                .font(.title2)
-                .fontWeight(.medium)
-
-            Text("Создайте первую вакансию или обновите список")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Создать вакансию") {
-                showingCreateVacancy = true
-            }
-            .font(.headline)
-            .foregroundColor(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.blue)
-            .cornerRadius(10)
-        }
-        .padding()
-    }
-
-    private var vacancyListView: some View {
-        List {
-            ForEach(vm.vacancies) { vacancy in
-                NavigationLink(destination: VacancyDetailView(vacancy: vacancy)) {
-                    VacancyRowView(vacancy: vacancy)
-                }
+        .onAppear {
+            Task {
+                await vacancyViewModel.fetchAllVacancies()
             }
         }
-        .listStyle(PlainListStyle())
     }
 }
 
-struct VacancyRowView: View {
-    let vacancy: Vacancy
-
+struct SearchBar: View {
+    @Binding var text: String
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(vacancy.title)
-                .font(.headline)
-                .lineLimit(2)
-
-            Text(vacancy.description)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .lineLimit(3)
-
-            HStack {
-                Text("Автор: \(vacancy.user.fullName)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Text(vacancy.createdAt, style: .relative)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            if !vacancy.tags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(vacancy.tagsArray, id: \.self) { tag in
-                            Text(tag)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(6)
-                        }
-                    }
-                    .padding(.horizontal, 1)
+        HStack {
+            Image(systemName: Constants.Images.magnifyingglass)
+                .foregroundColor(Constants.Colors.textSecondary)
+            
+            TextField(Constants.Text.Vacancies.search, text: $text)
+                .textFieldStyle(PlainTextFieldStyle())
+            
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: Constants.Images.xmark)
+                        .foregroundColor(Constants.Colors.textSecondary)
                 }
-                .padding(.vertical, 4)
             }
         }
-        .padding(.vertical, 4)
+        .padding(Constants.UI.padding)
+        .background(Constants.Colors.backgroundSecondary)
+        .cornerRadius(Constants.UI.cornerRadius)
+        .padding(.vertical, Constants.UI.smallPadding)
     }
+}
+
+struct EmptyVacanciesView: View {
+    let isSearching: Bool
+    
+    var body: some View {
+        VStack(spacing: Constants.UI.mediumSpacing) {
+            Image(systemName: Constants.Images.briefcase)
+                .font(.system(size: 60))
+                .foregroundColor(Constants.Colors.textTertiary)
+            
+            Text(isSearching ? "Ничего не найдено" : "Нет вакансий")
+                .font(Constants.Fonts.title2)
+                .foregroundColor(Constants.Colors.textSecondary)
+            
+            Text(isSearching ?
+                 "Попробуйте изменить параметры поиска" :
+                 "Пока нет доступных вакансий")
+                .font(Constants.Fonts.body)
+                .foregroundColor(Constants.Colors.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(Constants.UI.largePadding)
+    }
+}
+
+#Preview {
+    VacancyListView()
+        .environmentObject(AuthManager())
+        .environmentObject(VacancyViewModel())
 }

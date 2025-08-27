@@ -2,7 +2,7 @@
 //  StudyBodyTests.swift
 //  StudyBodyTests
 //
-//  Created by Вячеслав Чухвичёв on 29.07.25.
+//  Created by Вячеслав Чухвичёв on 25.08.25.
 //
 
 import Testing

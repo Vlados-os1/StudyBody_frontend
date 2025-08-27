@@ -1,114 +1,126 @@
 //
-// ForgotPasswordView.swift
-// StudyBody
+//  ForgotPasswordView.swift
+//  StudyBodyApp
+//
+//  Created by User on 25/08/2025.
 //
 
 import SwiftUI
 
 struct ForgotPasswordView: View {
-    @StateObject private var viewModel = ForgotPasswordViewModel()
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isEmailFieldFocused: Bool
+    @EnvironmentObject var authManager: AuthManager
+    @StateObject private var viewModel: AuthViewModel
+    
+    @State private var email: String = ""
+    
+    init() {
+        let authManager = AuthManager()
+        self._viewModel = StateObject(wrappedValue: AuthViewModel(authManager: authManager))
+    }
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    headerSection
+            VStack(spacing: Constants.UI.largeSpacing) {
+                Spacer()
+                
+                // Header
+                VStack(spacing: Constants.UI.mediumSpacing) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(Constants.Colors.primaryBlue)
                     
-                    if viewModel.isEmailSent {
-                        successSection
-                    } else {
-                        formSection
-                        buttonSection
-                    }
+                    Text("Восстановление пароля")
+                        .font(Constants.Fonts.title1)
+                        .foregroundColor(Constants.Colors.textPrimary)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Введите адрес электронной почты, на который мы отправим ссылку для восстановления пароля")
+                        .font(Constants.Fonts.body)
+                        .foregroundColor(Constants.Colors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Constants.UI.padding)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 32)
+                
+                // Form
+                VStack(spacing: Constants.UI.mediumSpacing) {
+                    CustomTextField(
+                        placeholder: "Email",
+                        text: $email,
+                        icon: Constants.Images.envelope,
+                        keyboardType: .emailAddress,
+                        contentType: .emailAddress
+                    )
+                    
+                    // Error/Success Messages
+                    if let errorMessage = viewModel.errorMessage {
+                        ErrorBannerView(
+                            message: errorMessage,
+                            isVisible: .constant(true)
+                        )
+                    }
+                    
+                    if let successMessage = viewModel.successMessage {
+                        SuccessBannerView(
+                            message: successMessage,
+                            isVisible: .constant(true)
+                        )
+                    }
+                    
+                    // Send Button
+                    Button {
+                        Task {
+                            await viewModel.forgotPassword(email: email)
+                        }
+                    } label: {
+                        HStack {
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.white)
+                            }
+                            Text("Отправить ссылку")
+                                .font(Constants.Fonts.headline)
+                        }
+                    }
+                    .primaryButtonStyle()
+                    .disabled(viewModel.isLoading || email.isEmpty || !email.isValidEmail)
+                    .padding(.top, Constants.UI.smallSpacing)
+                }
+                .padding(.horizontal, Constants.UI.largePadding)
+                
+                Spacer()
+                
+                // Back to Login
+                Button("Вернуться к входу") {
+                    dismiss()
+                }
+                .font(Constants.Fonts.headline)
+                .foregroundColor(Constants.Colors.primaryBlue)
+                .padding(.bottom, Constants.UI.largePadding)
             }
-            .navigationTitle("Восстановление пароля")
+            .navigationTitle("Восстановление")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Отмена") { dismiss() }
-                }
-            }
-            .alert("Ошибка", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("OK") { viewModel.clearError() }
-            } message: {
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
+                    Button("Отмена") {
+                        dismiss()
+                    }
+                    .foregroundColor(Constants.Colors.primaryBlue)
                 }
             }
         }
-    }
-    
-    private var headerSection: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "key.fill")
-                .font(.system(size: 64))
-                .foregroundColor(.orange)
-            
-            Text("Забыли пароль?")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text("Введите ваш email адрес и мы отправим инструкции по восстановлению пароля")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.bottom, 16)
+        .onTapGesture {
+            hideKeyboard()
+        }
+        .onAppear {
+            viewModel.clearAllMessages()
         }
     }
-    
-    private var formSection: some View {
-        VStack(spacing: 16) {
-            CustomTextField(
-                title: "Email",
-                text: $viewModel.email,
-                keyboardType: .emailAddress,
-                autocapitalization: .never
-            )
-            .focused($isEmailFieldFocused)
-            .onSubmit {
-                if viewModel.isFormValid {
-                    Task { await viewModel.sendResetEmail() }
-                }
-            }
-        }
-    }
-    
-    private var buttonSection: some View {
-        LoadingButton(
-            title: "Отправить инструкции",
-            isLoading: viewModel.isLoading,
-            isEnabled: viewModel.isFormValid
-        ) {
-            Task { await viewModel.sendResetEmail() }
-        }
-        .padding(.top, 8)
-    }
-    
-    private var successSection: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundColor(.green)
-            
-            if let successMessage = viewModel.successMessage {
-                Text(successMessage)
-                    .font(.body)
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            Button("Готово") { dismiss() }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity, minHeight: 50)
-                .background(Color.blue)
-                .cornerRadius(10)
-        }
-        .padding()
-    }
+}
+
+#Preview {
+    ForgotPasswordView()
+        .environmentObject(AuthManager())
 }

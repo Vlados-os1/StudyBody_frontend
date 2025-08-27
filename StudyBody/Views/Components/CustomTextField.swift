@@ -1,68 +1,84 @@
 //
-// CustomTextField.swift
-// StudyBody
+//  CustomTextField.swift
+//  StudyBodyApp
+//
+//  Created by User on 25/08/2025.
 //
 
 import SwiftUI
 
 struct CustomTextField: View {
-    let title: String
+    let placeholder: String
     @Binding var text: String
-    let placeholder: String?
-    let isSecure: Bool
-    let keyboardType: UIKeyboardType
-    let autocapitalization: TextInputAutocapitalization
-    let validationMessage: String?
+    let icon: String
+    var isSecure: Bool = false
+    var keyboardType: UIKeyboardType = .default
+    var contentType: UITextContentType? = nil
     
-    init(
-        title: String,
-        text: Binding<String>,
-        placeholder: String? = nil,
-        isSecure: Bool = false,
-        keyboardType: UIKeyboardType = .default,
-        autocapitalization: TextInputAutocapitalization = .sentences,
-        validationMessage: String? = nil
-    ) {
-        self.title = title
-        self._text = text
-        self.placeholder = placeholder ?? title
-        self.isSecure = isSecure
-        self.keyboardType = keyboardType
-        self.autocapitalization = autocapitalization
-        self.validationMessage = validationMessage
-    }
+    @State private var isPasswordVisible = false
+    @FocusState private var isFocused: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
+        HStack(spacing: Constants.UI.smallSpacing) {
+            // Icon
+            Image(systemName: icon)
+                .foregroundColor(isFocused ? Constants.Colors.primaryBlue : Constants.Colors.textSecondary)
+                .frame(width: 20)
+                .animation(Constants.Animation.quick, value: isFocused)
             
+            // Text Field
             Group {
-                if isSecure {
-                    SecureField(placeholder ?? "", text: $text)
+                if isSecure && !isPasswordVisible {
+                    SecureField(placeholder, text: $text)
                 } else {
-                    TextField(placeholder ?? "", text: $text)
-                        .keyboardType(keyboardType)
-                        .textInputAutocapitalization(autocapitalization)
+                    TextField(placeholder, text: $text)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(validationMessage != nil ? Color.red : Color.clear, lineWidth: 1)
-            )
+            .keyboardType(keyboardType)
+            .textContentType(contentType)
+            .autocapitalization(.none)
+            .disableAutocorrection(true)
+            .focused($isFocused)
             
-            if let validationMessage = validationMessage {
-                Text(validationMessage)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.leading, 4)
+            // Password visibility toggle
+            if isSecure {
+                Button {
+                    isPasswordVisible.toggle()
+                } label: {
+                    Image(systemName: isPasswordVisible ? Constants.Images.eye : Constants.Images.eyeSlash)
+                        .foregroundColor(Constants.Colors.textSecondary)
+                }
             }
         }
+        .padding(Constants.UI.padding)
+        .background(Constants.Colors.backgroundSecondary)
+        .cornerRadius(Constants.UI.cornerRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: Constants.UI.cornerRadius)
+                .stroke(
+                    isFocused ? Constants.Colors.primaryBlue : Color.clear,
+                    lineWidth: 1
+                )
+        )
+        .animation(Constants.Animation.quick, value: isFocused)
     }
+}
+
+#Preview {
+    VStack(spacing: 16) {
+        CustomTextField(
+            placeholder: "Email",
+            text: .constant(""),
+            icon: Constants.Images.envelope,
+            keyboardType: .emailAddress
+        )
+        
+        CustomTextField(
+            placeholder: "Password",
+            text: .constant(""),
+            icon: Constants.Images.lock,
+            isSecure: true
+        )
+    }
+    .padding()
 }
